@@ -52,10 +52,9 @@ Wbiplot(USArrests, numer1 = 0.5, numer2 = 0.5)
 Wbiplot(USArrests, numer1 = 0.2, numer2 = 0.8)
 
 }
-\author{
-Albert Dorador
-}
 \seealso{
 \code{\link[powerplus]{Matpow}}
 }
-
+\author{
+Albert Dorador
+}

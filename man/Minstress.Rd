@@ -39,7 +39,7 @@ in an attempt to find the best seed (which induces a particular initial configur
 require(MASS)
 
 swiss.x <- as.data.frame(swiss[, -1])
-Minstress(swiss.x, 1e6, 100, 2, iter = 3)
+Minstress(swiss.x, 1e5, 50, 2, iter = 3)
 
 # Comparing without using Minstress (for such a low value of s, difference is minimal)
 swiss.x <- as.matrix(swiss[, -1])
@@ -50,4 +50,3 @@ swiss.mds <- isoMDS(swiss.dist)
 \author{
 Albert Dorador
 }
-

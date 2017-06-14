@@ -55,11 +55,10 @@ offliers(db,lm.D9, CD = TRUE, DFB = TRUE, COVR = TRUE, intersection = FALSE)
 offliers(db,lm.D9, CD = TRUE, DFB = TRUE, COVR = TRUE, pctg = 10, intersection = FALSE)
 
 }
-\author{
-Albert Dorador
-}
 \references{
 Cook & Weisberg 1982, "Residuals and Influence in Regression".
 \url{http://conservancy.umn.edu/handle/11299/37076}
 }
-
+\author{
+Albert Dorador
+}
