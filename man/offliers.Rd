@@ -4,8 +4,8 @@
 \alias{offliers}
 \title{Takes Outliers Off}
 \usage{
-offliers(dataset, mod, CD = TRUE, DFB = FALSE, COVR = FALSE, pctg = 100,
-  intersection = TRUE)
+offliers(dataset, mod, CD = TRUE, DFB = FALSE, COVR = FALSE,
+  pctg = 100, intersection = TRUE)
 }
 \arguments{
 \item{dataset}{an object containing the data used in the linear regression model, typically a data frame.}

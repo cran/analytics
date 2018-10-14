@@ -37,7 +37,7 @@
 #'
 #' @author Albert Dorador
 #' @export
-#' @importFrom np b.star
+#' @import np
 #' @examples
 #' set.seed(123)
 #' x = rnorm(1e4)
@@ -51,7 +51,7 @@ tgsboot <- function(tseries, nb = 1, b.info = FALSE){
   if (!(nb > 0 && is.numeric(nb) && (nb == floor(nb))))
     stop("nb must be a positive integer.")
   N <- length(tseries)
-  b <- b.star(tseries, round = TRUE)[1]
+  b <- np::b.star(tseries, round = TRUE)[1]
   f <- function(q){
     (N-b)*q^(N+1) + (b-1-N)*q^N + (1+b)*q + 1 - b
   }
@@ -133,3 +133,12 @@ tgsboot <- function(tseries, nb = 1, b.info = FALSE){
     }
   }
 }
+
+# Examples
+set.seed(123)
+x = rnorm(1e4)
+boot = tgsboot(x)
+boot = tgsboot(x, b.info = TRUE)
+boot = tgsboot(x, nb = 2)
+boot = tgsboot(x, nb = 2, b.info = TRUE)
+#boot = tgsboot(x, nb = 2.1)

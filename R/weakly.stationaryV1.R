@@ -48,22 +48,26 @@
 #' @importFrom lmtest bptest
 #' @importFrom fractal stationarity
 #' @examples
-#' x1 <- rnorm(1e2)
+#' x1 <- rnorm(1e3)
 #' weakly.stationary(tseries = x1)
 #' weakly.stationary(tseries = x1, signific_gen = 0.025)
 #' weakly.stationary(tseries = x1, signific_pp.df = 0.1)
+#' weakly.stationary(tseries = x1, MK = TRUE)
 #' weakly.stationary(tseries = x1, PSR = FALSE)
 #' weakly.stationary(tseries = x1, weak.dep = TRUE)
+#' weakly.stationary(tseries = x1, MK = TRUE, PSR = FALSE)
 #' weakly.stationary(tseries = x1, mode = "strict")
 #' weakly.stationary(tseries = x1, mode = "loose")
 #'
 #' require(stats)
 #' set.seed(123)
-#' x2 <- arima.sim(n = 1e2, list(ar = 0.4))
+#' x2 <- arima.sim(n = 1e3, list(ar = 0.4))
 #' weakly.stationary(tseries = x2)
 #' weakly.stationary(tseries = x2, signific_gen = 0.01)
+#' weakly.stationary(tseries = x2, MK = TRUE)
 #' weakly.stationary(tseries = x2, PSR = FALSE)
 #' weakly.stationary(tseries = x2, weak.dep = TRUE)
+#' weakly.stationary(tseries = x2, MK = TRUE, PSR = FALSE)
 #' weakly.stationary(tseries = x2, mode = "strict")
 #' weakly.stationary(tseries = x2, mode = "loose")
 #'
@@ -74,16 +78,16 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
   # Note:2) MK has bad time complexity 3) mode: "strict", "loose"
   if (!signific_gen %in% c(0.01, 0.025, 0.05, 0.1))
     stop("Signific_gen currently supports: 0.01, 0.025, 0.05, 0.1")
-
+  
   if (!signific_pp.df %in% c(0.01, 0.05, 0.1))
     stop("Signific_pp.df currently supports: 0.01, 0.05, 0.1")
-
+  
   mode <- tolower(mode) #make this parameter case-insensitive
-
+  
   if (!mode %in% c("loose", "neutral", "strict"))
     stop("mode must be one of: 'loose', 'neutral', 'strict'.")
-
-
+  
+  
   if (mode == "strict") { #Trend(lm&MK)+Var(McLi&BP)+PSR+weak.dep
     signific_gen <- 0.1
     signific_pp.df <- 0.01
@@ -93,23 +97,23 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
     signific_gen <- 0.01
     PSR <- FALSE
   }
-
+  
   Dim <- dim(tseries)
-
+  
   if (length(Dim) == 2) {
     n.series <- Dim[2]
     time <- 1:Dim[1]
-
+    
     #preallocate memory
     results.vec <- logical(n.series)
-
+    
     for (j in 1:n.series) {
       series.j <- tseries[,j]
-
+      
       # (1) Testing for trend
-
+      
       mod <- lm(series.j ~ time)
-
+      
       if (!MK && mode != "strict") {
         mod.res <- as.vector(mod$residuals)
         DW <- durbinWatsonTest(mod.res)
@@ -120,12 +124,12 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
           s.mod <- summary(mod.R)
         }
         stat_in_trend <- !(s.mod$coefficients[8] < signific_gen) #0.01 is looser than 0.05
-
+        
       } else if (MK && mode != "strict") { #if Mann-Kendall test is requested
         series.j <- as.ts(series.j)
         mk <- mk.test(series.j)
         stat_in_trend <- !(mk$pvalg < signific_gen) #0.01 is looser than 0.05
-
+        
       } else { # mode is "strict"
         mod.res <- as.vector(mod$residuals)
         DW <- durbinWatsonTest(mod.res)
@@ -139,46 +143,46 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
         series.j <- as.ts(series.j)
         mk <- mk.test(series.j)
         stat_in_trend.MK <- !(mk$pvalg < signific_gen)
-
+        
         stat_in_trend <- stat_in_trend.t && stat_in_trend.MK
       }
-
+      
       if (!stat_in_trend) {
         results.vec[j] <- FALSE
         next #skip to next iteration
       }
-
+      
       # (2) Testing for non-constant variance
-
+      
       if (!BP && mode != "strict") {
         # a) McLeod-Li test (Ljung-Box test on squared data)
         McLi <- McLeod.Li.test(y = series.j, plot = FALSE) #0.01 is looser than 0.05
         mcli <- !(any(McLi$p.values < signific_gen)) #!(Non-constant variance)
         stat_in_var <- mcli
-
+        
       } else if (BP && mode != "strict") {
         # b) Breusch-Pagan test
         bp <- bptest(mod) #0.01 is looser than 0.05
         bp <- !(bp$p.value[[1]] < signific_gen) #!(Non-constant variance (of the error))
         stat_in_var <- bp
-
+        
       } else { # mode is "strict"
         # a) McLeod-Li test (Ljung-Box test on squared data)
         McLi <- McLeod.Li.test(y = series.j, plot = FALSE)
         mcli <- !(any(McLi$p.values < signific_gen)) #!(Non-constant variance)
-
+        
         # b) Breusch-Pagan test
         bp <- bptest(mod)
         bp <- !(bp$p.value[[1]] < signific_gen) #!(Non-constant variance (of the error))
-
+        
         stat_in_var <- mcli && bp
       }
-
+      
       if (!stat_in_var) {
         results.vec[j] <- FALSE
         next
       }
-
+      
       if (PSR && !weak.dep) {
         sink("NUL") #starts suppressing output until sink() is called
         psr.info <- stationarity(series.j, significance = signific_gen) #Ho: stat.
@@ -186,14 +190,14 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
         psr <- attributes(psr.info)$stationarity[[1]] #0.01 is looser than 0.05
         results.vec[j] <- psr
       }
-
+      
       if (PSR && weak.dep) { #battery of weak dependence tests: PP, ADF, KPSS
         # PSR
         sink("NUL") #starts suppressing output until sink() is called
         psr.info <- stationarity(series.j, significance = signific_gen) #Ho: stat.
         sink()
         psr <- attributes(psr.info)$stationarity[[1]]
-
+        
         # Weak dep
         # (a) Phillips-Perron
         a <- summary(ur.pp(series.j, type = "Z-tau", model = "constant"))
@@ -202,7 +206,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                               ifelse(signific_pp.df == 0.05, attributes(a)$cval[2],
                                      attributes(a)$cval[3]))
         PP <- z.tau < pp.crit.val #reject H0 of unit root
-
+        
         # (b) Augmented Dickey-Fuller
         found <- FALSE
         lag.order <- 0
@@ -222,7 +226,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                                ifelse(signific_pp.df == 0.05, attributes(b)$cval[2],
                                       attributes(b)$cval[3]))
         ADF <- adf.stat < adf.crit.val #reject H0 of unit root
-
+        
         # (c) KPSS
         c <- summary(ur.kpss(series.j, type = "mu", use.lag = lag.order))
         kpss.stat <- attributes(c)$teststat[1] #0.01 is looser than 0.05
@@ -231,12 +235,12 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                                        ifelse(signific_gen == 0.025, attributes(c)$cval[3],
                                               attributes(c)$cval[4])))
         KPSS <- kpss.stat < kpss.crit.val # Do NOT reject H0 of weakly dependent
-
+        
         weakly.dependent <- PP && ADF && KPSS
-
+        
         results.vec[j] <- psr && weakly.dependent
       }
-
+      
       if (!PSR && weak.dep) {
         # (a) Phillips-Perron
         a <- summary(ur.pp(series.j, type = "Z-tau", model = "constant"))
@@ -245,7 +249,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                               ifelse(signific_pp.df == 0.05, attributes(a)$cval[2],
                                      attributes(a)$cval[3]))
         PP <- z.tau < pp.crit.val #reject H0 of unit root
-
+        
         # (b) Augmented Dickey-Fuller
         found <- FALSE
         lag.order <- 0
@@ -265,7 +269,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                                ifelse(signific_pp.df == 0.05, attributes(b)$cval[2],
                                       attributes(b)$cval[3]))
         ADF <- adf.stat < adf.crit.val #reject H0 of unit root
-
+        
         # (c) KPSS
         c <- summary(ur.kpss(series.j, type = "mu", use.lag = lag.order))
         kpss.stat <- attributes(c)$teststat[1] #0.01 is looser than 0.05
@@ -274,25 +278,25 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                                        ifelse(signific_gen == 0.025, attributes(c)$cval[3],
                                               attributes(c)$cval[4])))
         KPSS <- kpss.stat < kpss.crit.val # Do NOT reject H0 of weakly dependent
-
+        
         weakly.dependent <- PP && ADF && KPSS
-
+        
         results.vec[j] <- weakly.dependent
       }
-
+      
       if (!PSR && !weak.dep) {
         results.vec[j] <- TRUE #if reached this far, must have passed trend & var
       }
     }
     return(results.vec)
-
+    
   } else { #only 1 time series
-
+    
     # (1) Testing for trend
-
+    
     time <- 1:length(tseries)
     mod <- lm(tseries ~ time)
-
+    
     if (!MK && mode != "strict") {
       mod.res <- as.vector(mod$residuals)
       DW <- durbinWatsonTest(mod.res)
@@ -303,12 +307,12 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
         s.mod <- summary(mod.R)
       }
       stat_in_trend <- !(s.mod$coefficients[8] < signific_gen) #0.01 is looser than 0.05
-
+      
     } else if (MK && mode != "strict") { #if Mann-Kendall test is requested
       tseries <- as.ts(tseries)
       mk <- mk.test(tseries)
       stat_in_trend <- !(mk$pvalg < signific_gen) #0.01 is looser than 0.05
-
+      
     } else { # mode is "strict"
       mod.res <- as.vector(mod$residuals)
       DW <- durbinWatsonTest(mod.res)
@@ -322,44 +326,44 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
       tseries <- as.ts(tseries)
       mk <- mk.test(tseries)
       stat_in_trend.MK <- !(mk$pvalg < signific_gen)
-
+      
       stat_in_trend <- stat_in_trend.t && stat_in_trend.MK
     }
-
+    
     if (!stat_in_trend) {
       return(FALSE)
     }
-
+    
     # (2) Testing for non-constant variance
-
+    
     if (!BP && mode != "strict") {
       # a) McLeod-Li test (Ljung-Box test on squared data)
       McLi <- McLeod.Li.test(y = tseries, plot = FALSE) #0.01 is looser than 0.05
       mcli <- !(any(McLi$p.values < signific_gen)) #!(Non-constant variance)
       stat_in_var <- mcli
-
+      
     } else if (BP && mode != "strict") {
       # b) Breusch-Pagan test
       bp <- bptest(mod) #0.01 is looser than 0.05
       bp <- !(bp$p.value[[1]] < signific_gen) #!(Non-constant variance (of the error))
       stat_in_var <- bp
-
+      
     } else { # mode is "strict"
       # a) McLeod-Li test (Ljung-Box test on squared data)
       McLi <- McLeod.Li.test(y = tseries, plot = FALSE)
       mcli <- !(any(McLi$p.values < signific_gen)) #!(Non-constant variance)
-
+      
       # b) Breusch-Pagan test
       bp <- bptest(mod)
       bp <- !(bp$p.value[[1]] < signific_gen) #!(Non-constant variance (of the error))
-
+      
       stat_in_var <- mcli && bp
     }
-
+    
     if (!stat_in_var) {
       return(FALSE)
     }
-
+    
     if (PSR && !weak.dep) {
       sink("NUL") #starts suppressing output until sink() is called
       psr.info <- stationarity(tseries, significance = signific_gen) #Ho: stat.
@@ -367,14 +371,14 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
       psr <- attributes(psr.info)$stationarity[[1]] #0.01 is looser than 0.05
       return(psr)
     }
-
+    
     if (PSR && weak.dep) { #battery of weak dependence tests: PP, ADF, KPSS
       # PSR
       sink("NUL") #starts suppressing output until sink() is called
       psr.info <- stationarity(tseries, significance = signific_gen) #Ho: stat.
       sink()
       psr <- attributes(psr.info)$stationarity[[1]]
-
+      
       # Weak dep
       # (a) Phillips-Perron
       a <- summary(ur.pp(tseries, type = "Z-tau", model = "constant"))
@@ -383,7 +387,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                             ifelse(signific_pp.df == 0.05, attributes(a)$cval[2],
                                    attributes(a)$cval[3]))
       PP <- z.tau < pp.crit.val #reject H0 of unit root
-
+      
       # (b) Augmented Dickey-Fuller
       found <- FALSE
       lag.order <- 0
@@ -403,7 +407,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                              ifelse(signific_pp.df == 0.05, attributes(b)$cval[2],
                                     attributes(b)$cval[3]))
       ADF <- adf.stat < adf.crit.val #reject H0 of unit root
-
+      
       # (c) KPSS
       c <- summary(ur.kpss(tseries, type = "mu", use.lag = lag.order))
       kpss.stat <- attributes(c)$teststat[1] #0.01 is looser than 0.05
@@ -412,12 +416,12 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                                      ifelse(signific_gen == 0.025, attributes(c)$cval[3],
                                             attributes(c)$cval[4])))
       KPSS <- kpss.stat < kpss.crit.val # Do NOT reject H0 of weakly dependent
-
+      
       weakly.dependent <- PP && ADF && KPSS
-
+      
       return(psr && weakly.dependent)
     }
-
+    
     if (!PSR && weak.dep) {
       # (a) Phillips-Perron
       a <- summary(ur.pp(tseries, type = "Z-tau", model = "constant"))
@@ -426,7 +430,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                             ifelse(signific_pp.df == 0.05, attributes(a)$cval[2],
                                    attributes(a)$cval[3]))
       PP <- z.tau < pp.crit.val #reject H0 of unit root
-
+      
       # (b) Augmented Dickey-Fuller
       found <- FALSE
       lag.order <- 0
@@ -446,7 +450,7 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                              ifelse(signific_pp.df == 0.05, attributes(b)$cval[2],
                                     attributes(b)$cval[3]))
       ADF <- adf.stat < adf.crit.val #reject H0 of unit root
-
+      
       # (c) KPSS
       c <- summary(ur.kpss(tseries, type = "mu", use.lag = lag.order))
       kpss.stat <- attributes(c)$teststat[1] #0.01 is looser than 0.05
@@ -455,12 +459,12 @@ weakly.stationary <- function(tseries, signific_gen = 0.05, signific_pp.df = 0.0
                                      ifelse(signific_gen == 0.025, attributes(c)$cval[3],
                                             attributes(c)$cval[4])))
       KPSS <- kpss.stat < kpss.crit.val # Do NOT reject H0 of weakly dependent
-
+      
       weakly.dependent <- PP && ADF && KPSS
-
+      
       return(weakly.dependent)
     }
-
+    
     if (!PSR && !weak.dep) {
       return(TRUE) #if reached this far, must have passed trend & var
     }
